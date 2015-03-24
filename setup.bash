@@ -22,6 +22,7 @@ echo $HOSTNAME > /etc/hostname
 echo -e $IP'\t'$HOSTNAME >> /etc/hosts
 
 
+dpkg-reconfigure tzdata
 apt-get install -y less bind9 dnsutils nginx mysql-server mysql-client php5-fpm php5-mysql php-pear php5-gd
 pear channel-discover pear.drush.org
 pear install drush/drush
