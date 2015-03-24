@@ -202,4 +202,4 @@ cd $HOSTNAME
 /etc/init.d/hostname.sh
 /etc/init.d/bind9 restart
 /etc/init.d/php5-fpm restart
-/etc/init.d/nginx start
+/etc/init.d/nginx restart
