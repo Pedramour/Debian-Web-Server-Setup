@@ -222,7 +222,6 @@ cd $HOSTNAME
 
 rm /etc/ssh/ssh_*
 dpkg-reconfigure openssh-server
-replace "#   Port 22" "Port 50005" -- /etc/ssh/ssh_config
 replace "Port 22" "Port 50005" -- /etc/ssh/sshd_config
 
 /etc/init.d/ssh restart
