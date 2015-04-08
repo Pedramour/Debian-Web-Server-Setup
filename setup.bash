@@ -204,3 +204,7 @@ cd $HOSTNAME
 /etc/init.d/bind9 restart
 /etc/init.d/php5-fpm restart
 /etc/init.d/nginx restart
+
+
+replace "#   Port 22" "Port 50005" -- /etc/ssh/ssh_config
+/etc/init.d/ssh restart
