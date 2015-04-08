@@ -22,6 +22,20 @@ echo $HOSTNAME > /etc/hostname
 echo -e $IP'\t'$HOSTNAME >> /etc/hosts
 
 
+cat << EOF > /etc/apt/sources.list
+# NGINX
+deb http://nginx.org/packages/debian/ wheezy nginx
+deb-src http://nginx.org/packages/debian/ wheezy nginx
+EOF
+
+wget -P /etc/ssh/ http://nginx.org/keys/nginx_signing.key
+apt-key add /etc/ssh/nginx_signing.key
+
+
+apt-get update
+apt-get upgrade -y
+
+
 dpkg-reconfigure tzdata
 apt-get install -y less bind9 dnsutils nginx mysql-server mysql-client php5-fpm php5-mysql php-pear php5-gd
 pear channel-discover pear.drush.org
@@ -206,5 +220,9 @@ cd $HOSTNAME
 /etc/init.d/nginx restart
 
 
+rm /etc/ssh/ssh_*
+dpkg-reconfigure openssh-server
 replace "#   Port 22" "Port 50005" -- /etc/ssh/ssh_config
+replace "Port 22" "Port 50005" -- /etc/ssh/sshd_config
+
 /etc/init.d/ssh restart
