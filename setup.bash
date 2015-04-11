@@ -22,7 +22,7 @@ echo $HOSTNAME > /etc/hostname
 echo -e $IP'\t'$HOSTNAME >> /etc/hosts
 
 
-cat << EOF > /etc/apt/sources.list
+cat << EOF >> /etc/apt/sources.list
 
 # NGINX
 deb http://nginx.org/packages/debian/ wheezy nginx
