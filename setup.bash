@@ -107,7 +107,7 @@ zone "0.$(echo $IP | cut -d. -f3).$(echo $IP | cut -d. -f2).$(echo $IP | cut -d.
 EOF
 
 
-cat << EOF > /etc/nginx/sites-available/$HOSTNAME
+cat << EOF > /etc/nginx/conf.d/$HOSTNAME.conf
 server {
   listen 80;
   server_name $HOSTNAME www.$HOSTNAME;
@@ -182,7 +182,7 @@ server {
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME \$request_filename;
     fastcgi_intercept_errors on;
-    fastcgi_pass 127.0.0.0:9000;
+    fastcgi_pass 127.0.0.1:9000;
   }
 
   # Fighting with Styles? This little gem is amazing.
@@ -205,8 +205,7 @@ replace ";cgi.fix_pathinfo=1" "cgi.fix_pathinfo=0" -- /etc/php5/fpm/php.ini
 replace "listen = /var/run/php5-fpm.sock" "listen = 127.0.0.1:9000" -- /etc/php5/fpm/pool.d/www.conf
 
 
-rm /etc/nginx/sites-enabled/default
-ln -s /etc/nginx/sites-available/$HOSTNAME /etc/nginx/sites-enabled/$HOSTNAME
+#rm /etc/nginx/conf.d/default.conf
 
 
 cd /websites/webfiles
