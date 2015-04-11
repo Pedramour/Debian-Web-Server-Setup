@@ -27,10 +27,16 @@ cat << EOF >> /etc/apt/sources.list
 # NGINX
 deb http://nginx.org/packages/debian/ wheezy nginx
 deb-src http://nginx.org/packages/debian/ wheezy nginx
+
+# VARNISH
+deb http://repo.varnish-cache.org/debian/ wheezy varnish-3.0
 EOF
 
-wget -P /etc/ssh/ http://nginx.org/keys/nginx_signing.key
-apt-key add /etc/ssh/nginx_signing.key
+wget -P /tmp http://nginx.org/keys/nginx_signing.key
+apt-key add /tmp/nginx_signing.key
+
+wget -P /tmp http://repo.varnish-cache.org/GPG-key.txt
+apt-key add /tmp/GPG-key.txt
 
 
 apt-get update
@@ -38,14 +44,16 @@ apt-get upgrade -y
 
 
 dpkg-reconfigure tzdata
-apt-get install -y less bind9 dnsutils nginx mysql-server mysql-client php5-fpm php5-mysql php-pear php5-gd
+
+apt-get install -y less curl bind9 dnsutils nginx mysql-server mysql-client php5-fpm php5-mysql php-pear php5-gd varnish
+
 pear channel-discover pear.drush.org
 pear install drush/drush
 
 
 mkdir /etc/bind/data
 mkdir -p /websites/webfiles
-mkdir -p /websites/log/nginx
+mkdir -p /websites/logs/nginx
 
 
 cat << EOF > /etc/bind/data/db.$HOSTNAME
@@ -112,8 +120,8 @@ server {
   listen 80;
   server_name $HOSTNAME www.$HOSTNAME;
   root        /websites/webfiles/$HOSTNAME;
-  error_log   /websites/log/nginx/$HOSTNAME-error.log;
-  access_log  /websites/log/nginx/$HOSTNAME-access.log;
+  error_log   /websites/logs/nginx/$HOSTNAME-error.log;
+  access_log  /websites/logs/nginx/$HOSTNAME-access.log;
 
   # Enable compression, this will help if you have for instance advagg‎ module
   # by serving Gzip versions of the files.
@@ -148,7 +156,7 @@ server {
 
   # No no for private
   location ~ ^/sites/.*/private/ {
-  return 403;
+    return 403;
   }
 
   # Block access to "hidden" files and directories whose names begin with a
