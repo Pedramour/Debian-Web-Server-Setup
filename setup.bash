@@ -216,20 +216,21 @@ replace "listen = /var/run/php5-fpm.sock" "listen = 127.0.0.1:9000" -- /etc/php5
 #rm /etc/nginx/conf.d/default.conf
 
 
-cd /websites/webfiles
-drush dl
-mv drupal-* $HOSTNAME
-cd $HOSTNAME
+rm /etc/ssh/ssh_*
+dpkg-reconfigure openssh-server
+replace "Port 22" "Port 50005" -- /etc/ssh/sshd_config
 
 
 /etc/init.d/hostname.sh
 /etc/init.d/bind9 restart
 /etc/init.d/php5-fpm restart
 /etc/init.d/nginx restart
-
-
-rm /etc/ssh/ssh_*
-dpkg-reconfigure openssh-server
-replace "Port 22" "Port 50005" -- /etc/ssh/sshd_config
-
 /etc/init.d/ssh restart
+
+
+cd /websites/webfiles
+drush dl
+mv drupal-* $HOSTNAME
+cd $HOSTNAME
+
+drush si standard --account-name=root --account-pass=root --db-url=mysql://root:mysqlpassword@localhost/dbname -y
