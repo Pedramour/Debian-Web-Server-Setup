@@ -18,6 +18,9 @@ if [ -z "${IP}" ]; then
 fi
 
 
+passwd root
+
+
 echo $HOSTNAME > /etc/hostname
 echo -e $IP'\t'$HOSTNAME >> /etc/hosts
 
