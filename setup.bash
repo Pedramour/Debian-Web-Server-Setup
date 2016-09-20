@@ -25,33 +25,39 @@ echo $HOSTNAME > /etc/hostname
 echo -e $IP'\t'$HOSTNAME >> /etc/hosts
 
 
-cat << EOF >> /etc/apt/sources.list
-
-# NGINX
-deb http://nginx.org/packages/debian/ wheezy nginx
-deb-src http://nginx.org/packages/debian/ wheezy nginx
-
-# VARNISH
-deb http://repo.varnish-cache.org/debian/ wheezy varnish-3.0
-EOF
-
-wget -P /tmp http://nginx.org/keys/nginx_signing.key
-apt-key add /tmp/nginx_signing.key
-
-wget -P /tmp http://repo.varnish-cache.org/GPG-key.txt
-apt-key add /tmp/GPG-key.txt
-
-
 apt-get update
 apt-get upgrade -y
 
 
+cat << EOF > /etc/apt/sources.list
+deb http://httpredir.debian.org/debian jessie main
+deb-src http://httpredir.debian.org/debian jessie main
+
+deb http://httpredir.debian.org/debian jessie-updates main
+deb-src http://httpredir.debian.org/debian jessie-updates main
+
+deb http://security.debian.org/ jessie/updates main
+deb-src http://security.debian.org/ jessie/updates main
+EOF
+
+
+apt-get update
+apt-get upgrade -y
+apt-get dist-upgrade -y
+apt-get autoremove -y
+
+
 dpkg-reconfigure tzdata
 
-apt-get install -y less curl bind9 dnsutils nginx mysql-server mysql-client php5-fpm php5-mysql php-pear php5-gd varnish
 
-pear channel-discover pear.drush.org
-pear install drush/drush
+apt-get install -y less zip unzip curl bind9 dnsutils nginx-extras mysql-server php5-fpm php5-mysql php5-curl php5-gd
+
+# Drush installation
+php -r "readfile('https://s3.amazonaws.com/files.drush.org/drush.phar');" > drush
+php drush core-status
+chmod +x drush
+mv drush /usr/local/bin
+drush init
 
 
 mkdir /etc/bind/data
@@ -63,9 +69,9 @@ cat << EOF > /etc/bind/data/db.$HOSTNAME
 ;
 ; BIND data file for local loopback interface
 ;
-\$TTL	3600
-@	IN	SOA	ns1.$HOSTNAME. jazaali.gmail.com. (
-   2014071800		; Serial
+\$TTL 3600
+@ IN  SOA ns1.$HOSTNAME. support.wki.ir. (
+   2016092000		; Serial
          3600   ; Refresh [1h]
           900   ; Retry   [15m]
       1209600   ; Expire  [2w]
@@ -81,6 +87,9 @@ ns2     IN      A       $IP
 
 www     IN      A       $IP
 mail    IN      A       $IP
+
+; SPF Record for MX.
+$HOSTNAME.  IN  TXT  "v=spf1 a mx -all"
 EOF
 
 
@@ -89,7 +98,7 @@ cat << EOF > /etc/bind/data/db.$(echo $IP | cut -d. -f1)
 ; BIND reverse data file for local loopback interface
 ;
 \$TTL	3600
-@	IN	SOA	ns1.$HOSTNAME. jazaali.gmail.com. (
+@	IN	SOA	ns1.$HOSTNAME. support.wki.ir. (
    2014100500		; Serial
          3600   ; Refresh [1h]
           900   ; Retry   [15m]
@@ -120,15 +129,10 @@ EOF
 
 cat << EOF > /etc/nginx/conf.d/$HOSTNAME.conf
 server {
-  listen 80;
   server_name $HOSTNAME www.$HOSTNAME;
   root        /websites/webfiles/$HOSTNAME;
-  error_log   /websites/logs/nginx/$HOSTNAME-error.log;
-  access_log  /websites/logs/nginx/$HOSTNAME-access.log;
-
-  # Enable compression, this will help if you have for instance advagg‎ module
-  # by serving Gzip versions of the files.
-  #gzip_static on;
+  error_log   /var/log/nginx/$HOSTNAME-error.log;
+  access_log  /var/log/nginx/$HOSTNAME-access.log;
 
   location = /favicon.ico {
     log_not_found off;
@@ -141,12 +145,6 @@ server {
     access_log off;
   }
 
-  # This matters if you use drush prior to 5.x
-  # After 5.x backups are stored outside the Drupal install.
-  location = /backup {
-    deny all;
-  }
-
   # Very rarely should these ever be accessed outside of your lan
   location ~* \.(txt|log)$ {
     allow 192.168.0.0/16;
@@ -157,9 +155,13 @@ server {
     return 403;
   }
 
-  # No no for private
   location ~ ^/sites/.*/private/ {
     return 403;
+  }
+
+  # Allow "Well-Known URIs" as per RFC 5785
+  location ~* ^/.well-known/ {
+    allow all;
   }
 
   # Block access to "hidden" files and directories whose names begin with a
@@ -170,41 +172,59 @@ server {
   }
 
   location / {
-    # This is cool because no php is touched for static content
-    try_files \$uri @rewrite;
+      # try_files $uri @rewrite; # For Drupal <= 6
+      try_files $uri /index.php?$query_string; # For Drupal >= 7
   }
 
   location @rewrite {
-    # You have 2 options here
-    # For D7 and above:
-    # Clean URLs are handled in drupal_environment_initialize().
-    #rewrite ^ /index.php;
-    # For Drupal 6 and bwlow:
-    # Some modules enforce no slash (/) at the end of the URL
-    # Else this rewrite block wouldn't be needed (GlobalRedirect)
-    rewrite ^/(.*)$ /index.php?q=\$1;
-    # Drupal in a subdirectory
-    #rewrite ^/([^/]*)/(.*)(/?)$ /\$1/index.php?q=\$2&\$args;
+    rewrite ^/(.*)$ /index.php?q=$1;
   }
 
-  location ~ \.php$ {
-    fastcgi_split_path_info ^(.+\.php)(/.+)$;
-    #NOTE: You should have "cgi.fix_pathinfo = 0;" in php.ini
+  # Don't allow direct access to PHP files in the vendor directory.
+  location ~ /vendor/.*\.php$ {
+    deny all;
+    return 404;
+  }
+
+  # In Drupal 8, we must also match new paths where the '.php' appears in
+  # the middle, such as update.php/selection. The rule we use is strict,
+  # and only allows this pattern with the update.php front controller.
+  # This allows legacy path aliases in the form of
+  # blog/index.php/legacy-path to continue to route to Drupal nodes. If
+  # you do not have any paths like that, then you might prefer to use a
+  # laxer rule, such as:
+  #   location ~ \.php(/|$) {
+  # The laxer rule will continue to work if Drupal uses this new URL
+  # pattern with front controllers other than update.php in a future
+  # release.
+  location ~ '\.php$|^/update.php' {
+    fastcgi_split_path_info ^(.+?\.php)(|/.*)$;
+    # Security note: If you're running a version of PHP older than the
+    # latest 5.3, you should have "cgi.fix_pathinfo = 0;" in php.ini.
+    # See http://serverfault.com/q/627903/94922 for details.
     include fastcgi_params;
-    fastcgi_param SCRIPT_FILENAME \$request_filename;
+    # Block httpoxy attacks. See https://httpoxy.org/.
+    fastcgi_param HTTP_PROXY "";
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    fastcgi_param PATH_INFO $fastcgi_path_info;
     fastcgi_intercept_errors on;
-    fastcgi_pass 127.0.0.1:9000;
+    # PHP 5 socket location.
+    #fastcgi_pass 127.0.0.1:9000;
+    fastcgi_pass unix:/var/run/php5-fpm.sock;
   }
 
   # Fighting with Styles? This little gem is amazing.
-  # This is for D6
-  #location ~ ^/sites/.*/files/imagecache/ {
-  # This is for D7 and D8
-  location ~ ^/sites/.*/files/styles/ {
-    try_files \$uri @rewrite;
+  # location ~ ^/sites/.*/files/imagecache/ { # For Drupal <= 6
+  location ~ ^/sites/.*/files/styles/ { # For Drupal >= 7
+    try_files $uri @rewrite;
   }
 
-  location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+  # Handle private files through Drupal.
+  location ~ ^/system/files/ { # For Drupal >= 7
+    try_files $uri /index.php?$query_string;
+  }
+
+  location ~* \.(js|css|png|jpg|jpeg|gif|ico|ttf|eot|woff|woff2)$ {
     expires max;
     log_not_found off;
   }
@@ -212,11 +232,8 @@ server {
 EOF
 
 
-replace ";cgi.fix_pathinfo=1" "cgi.fix_pathinfo=0" -- /etc/php5/fpm/php.ini
-replace "listen = /var/run/php5-fpm.sock" "listen = 127.0.0.1:9000" -- /etc/php5/fpm/pool.d/www.conf
-
-
-#rm /etc/nginx/conf.d/default.conf
+#replace ";cgi.fix_pathinfo=1" "cgi.fix_pathinfo=0" -- /etc/php5/fpm/php.ini
+#replace "listen = /var/run/php5-fpm.sock" "listen = 127.0.0.1:9000" -- /etc/php5/fpm/pool.d/www.conf
 
 
 rm /etc/ssh/ssh_*
@@ -229,11 +246,3 @@ replace "Port 22" "Port 50005" -- /etc/ssh/sshd_config
 /etc/init.d/php5-fpm restart
 /etc/init.d/nginx restart
 /etc/init.d/ssh restart
-
-
-cd /websites/webfiles
-drush dl
-mv drupal-* $HOSTNAME
-cd $HOSTNAME
-
-drush si standard --account-name=root --account-pass=root --db-url=mysql://root:mysqlpassword@localhost/dbname -y
