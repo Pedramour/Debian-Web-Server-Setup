@@ -213,11 +213,13 @@ server {
 EOF
 
 
+cp /etc/php5/fpm/php.ini /etc/php5/fpm/php.ini.bak
 replace "max_execution_time = 30" "max_execution_time = 60" -- /etc/php5/fpm/php.ini
 replace "post_max_size = 8M" "post_max_size = 128M" -- /etc/php5/fpm/php.ini
 replace "upload_max_filesize = 2M" "upload_max_filesize = 500M" -- /etc/php5/fpm/php.ini
 
 
+cp /etc/mysql/my.cnf /etc/mysql/my.cnf.bak
 # config mysql for 8GB Ram
 replace "key_buffer              = 16M" "key_buffer              = 64M" -- /etc/mysql/my.cnf
 replace "max_allowed_packet      = 16M" "max_allowed_packet      = 64M" -- /etc/mysql/my.cnf
