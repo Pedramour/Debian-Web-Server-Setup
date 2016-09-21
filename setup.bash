@@ -5,7 +5,7 @@ IP=${2}
 
 
 if [ -z "${HOSTNAME}" ]; then
-  echo "HOSTNAME must be set."
+  echo "HOSTNAME must be set. (# sh setup.sh example.com)"
   exit 0
 fi
 
@@ -18,37 +18,20 @@ if [ -z "${IP}" ]; then
 fi
 
 
-passwd root
-
+mkdir /etc/bind/data
 
 echo $HOSTNAME > /etc/hostname
-echo -e $IP'\t'$HOSTNAME >> /etc/hosts
+echo $IP $HOSTNAME >> /etc/hosts
 
+passwd root
 
-apt-get update
-apt-get upgrade -y
-
-
-cat << EOF > /etc/apt/sources.list
-deb http://httpredir.debian.org/debian jessie main
-deb-src http://httpredir.debian.org/debian jessie main
-
-deb http://httpredir.debian.org/debian jessie-updates main
-deb-src http://httpredir.debian.org/debian jessie-updates main
-
-deb http://security.debian.org/ jessie/updates main
-deb-src http://security.debian.org/ jessie/updates main
-EOF
+dpkg-reconfigure tzdata
 
 
 apt-get update
 apt-get upgrade -y
 apt-get dist-upgrade -y
 apt-get autoremove -y
-
-
-dpkg-reconfigure tzdata
-
 
 apt-get install -y less zip unzip curl bind9 dnsutils nginx-extras mysql-server php5-fpm php5-mysql php5-curl php5-gd
 
@@ -60,33 +43,28 @@ mv drush /usr/local/bin
 drush init
 
 
-mkdir /etc/bind/data
-mkdir -p /websites/webfiles
-mkdir -p /websites/logs/nginx
-
-
 cat << EOF > /etc/bind/data/db.$HOSTNAME
 ;
 ; BIND data file for local loopback interface
 ;
-\$TTL 3600
-@ IN  SOA ns1.$HOSTNAME. support.wki.ir. (
-   2016092000		; Serial
+\$TTL  3600
+@  IN  SOA  ns1.$HOSTNAME.  support.wki.ir. (
+   2016092000   ; Serial
          3600   ; Refresh [1h]
           900   ; Retry   [15m]
       1209600   ; Expire  [2w]
           300 ) ; Negative Cache TTL [30m]
 ;
-@       IN      NS      ns1.$HOSTNAME.
-@       IN      NS      ns2.$HOSTNAME.
-@       IN      MX      10 mail.$HOSTNAME.
+@     IN  NS  ns1.$HOSTNAME.
+@     IN  NS  ns2.$HOSTNAME.
+@     IN  MX  10 mail.$HOSTNAME.
 
-@       IN      A       $IP
-ns1     IN      A       $IP
-ns2     IN      A       $IP
+@     IN  A   $IP
+ns1   IN  A   $IP
+ns2   IN  A   $IP
 
-www     IN      A       $IP
-mail    IN      A       $IP
+www   IN  A   $IP
+mail  IN  A   $IP
 
 ; SPF Record for MX.
 $HOSTNAME.  IN  TXT  "v=spf1 a mx -all"
@@ -97,18 +75,18 @@ cat << EOF > /etc/bind/data/db.$(echo $IP | cut -d. -f1)
 ;
 ; BIND reverse data file for local loopback interface
 ;
-\$TTL	3600
-@	IN	SOA	ns1.$HOSTNAME. support.wki.ir. (
-   2014100500		; Serial
+\$TTL  3600
+@  IN  SOA  ns1.$HOSTNAME.  support.wki.ir. (
+   2014100500   ; Serial
          3600   ; Refresh [1h]
           900   ; Retry   [15m]
       1209600   ; Expire  [2w]
           300 ) ; Negative Cache TTL [30m]
 ;
-@       IN      NS      ns1.$HOSTNAME.
-@       IN      NS      ns2.$HOSTNAME.
-1       IN      PTR     www.$HOSTNAME.
-2       IN      PTR     mail.$HOSTNAME.
+@  IN  NS   ns1.$HOSTNAME.
+@  IN  NS   ns2.$HOSTNAME.
+1  IN  PTR  www.$HOSTNAME.
+2  IN  PTR  mail.$HOSTNAME.
 EOF
 
 
@@ -172,12 +150,12 @@ server {
   }
 
   location / {
-      # try_files $uri @rewrite; # For Drupal <= 6
-      try_files $uri /index.php?$query_string; # For Drupal >= 7
+    # try_files \$uri @rewrite; # For Drupal <= 6
+    try_files \$uri /index.php?\$query_string; # For Drupal >= 7
   }
 
   location @rewrite {
-    rewrite ^/(.*)$ /index.php?q=$1;
+    rewrite ^/(.*)$ /index.php?q=\$1;
   }
 
   # Don't allow direct access to PHP files in the vendor directory.
@@ -205,23 +183,22 @@ server {
     include fastcgi_params;
     # Block httpoxy attacks. See https://httpoxy.org/.
     fastcgi_param HTTP_PROXY "";
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    fastcgi_param PATH_INFO $fastcgi_path_info;
+    fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+    fastcgi_param PATH_INFO \$fastcgi_path_info;
     fastcgi_intercept_errors on;
     # PHP 5 socket location.
-    #fastcgi_pass 127.0.0.1:9000;
     fastcgi_pass unix:/var/run/php5-fpm.sock;
   }
 
   # Fighting with Styles? This little gem is amazing.
   # location ~ ^/sites/.*/files/imagecache/ { # For Drupal <= 6
   location ~ ^/sites/.*/files/styles/ { # For Drupal >= 7
-    try_files $uri @rewrite;
+    try_files \$uri @rewrite;
   }
 
   # Handle private files through Drupal.
   location ~ ^/system/files/ { # For Drupal >= 7
-    try_files $uri /index.php?$query_string;
+    try_files \$uri /index.php?\$query_string;
   }
 
   location ~* \.(js|css|png|jpg|jpeg|gif|ico|ttf|eot|woff|woff2)$ {
@@ -238,7 +215,7 @@ EOF
 
 rm /etc/ssh/ssh_*
 dpkg-reconfigure openssh-server
-replace "Port 22" "Port 50005" -- /etc/ssh/sshd_config
+replace "Port 22" "Port 50000" -- /etc/ssh/sshd_config
 
 
 /etc/init.d/hostname.sh
