@@ -112,6 +112,10 @@ server {
   error_log   /var/log/nginx/$HOSTNAME-error.log;
   access_log  /var/log/nginx/$HOSTNAME-access.log;
 
+  if (\$host = "$HOSTNAME") {
+    return 301 http://www.$HOSTNAME\$request_uri;
+  }
+
   location = /favicon.ico {
     log_not_found off;
     access_log off;
