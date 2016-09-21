@@ -209,8 +209,16 @@ server {
 EOF
 
 
-#replace ";cgi.fix_pathinfo=1" "cgi.fix_pathinfo=0" -- /etc/php5/fpm/php.ini
-#replace "listen = /var/run/php5-fpm.sock" "listen = 127.0.0.1:9000" -- /etc/php5/fpm/pool.d/www.conf
+replace "max_execution_time = 30" "max_execution_time = 60" -- /etc/php5/fpm/php.ini
+replace "post_max_size = 8M" "post_max_size = 128M" -- /etc/php5/fpm/php.ini
+replace "upload_max_filesize = 2M" "upload_max_filesize = 500M" -- /etc/php5/fpm/php.ini
+
+
+# config mysql for 8GB Ram
+replace "key_buffer              = 16M" "key_buffer              = 64M" -- /etc/mysql/my.cnf
+replace "max_allowed_packet      = 16M" "max_allowed_packet      = 64M" -- /etc/mysql/my.cnf
+replace "query_cache_limit       = 1M"  "query_cache_limit       = 4M" -- /etc/mysql/my.cnf
+replace "query_cache_size        = 16M" "query_cache_size        = 512M" -- /etc/mysql/my.cnf
 
 
 rm /etc/ssh/ssh_*
