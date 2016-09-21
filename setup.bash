@@ -33,7 +33,7 @@ apt-get upgrade -y
 apt-get dist-upgrade -y
 apt-get autoremove -y
 
-apt-get install -y less zip unzip curl bind9 dnsutils nginx-extras mysql-server php5-fpm php5-mysql php5-curl php5-gd
+apt-get install -y less ntp zip unzip curl bind9 dnsutils nginx-extras mysql-server php5-fpm php5-mysql php5-curl php5-gd
 
 # Drush installation
 php -r "readfile('https://s3.amazonaws.com/files.drush.org/drush.phar');" > drush
