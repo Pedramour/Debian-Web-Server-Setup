@@ -18,7 +18,7 @@ if [ -z "${IP}" ]; then
 fi
 
 
-mkdir /etc/bind/data
+mkdir -p /etc/bind/data
 
 echo $HOSTNAME > /etc/hostname
 echo $IP $HOSTNAME >> /etc/hosts
